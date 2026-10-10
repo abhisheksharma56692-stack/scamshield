@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ScamShield - AI Scam Detector</title>
+<style>
+  :root{--bg:#0b1220;--card:#121b2e;--line:#22304d;--text:#e8eefc;--mute:#8fa0c4;--brand:#4f8cff;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif;background:radial-gradient(1200px 600px at 70% -10%,#16264a,var(--bg));color:var(--text);min-height:100vh}
+  .wrap{max-width:900px;margin:0 auto;padding:28px 18px 60px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--brand),#7c5cff);display:grid;place-items:center;font-size:22px}
+  h1{margin:0;font-size:26px}
+  .sub{color:var(--mute);margin:4px 0 22px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+  textarea{width:100%;min-height:150px;resize:vertical;background:#0c1527;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:14px;font:inherit;outline:none}
+  textarea:focus{border-color:var(--brand)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center}
+  button{cursor:pointer;border:0;border-radius:10px;padding:11px 18px;font:inherit;font-weight:600}
+  .primary{background:var(--brand);color:#fff}
+  .primary:disabled{opacity:.6;cursor:wait}
+  .ghost{background:#1a2744;color:var(--text);border:1px solid var(--line);font-weight:500;font-size:13px;padding:8px 12px}
+  .ghost:hover{border-color:var(--brand)}
+  .label{color:var(--mute);font-size:13px;margin:16px 0 6px}
+  #result{display:none;margin-top:20px}
+  .top{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+  .gauge{width:140px;height:140px;border-radius:50%;display:grid;place-items:center;flex:none}
+  .gauge div{width:108px;height:108px;border-radius:50%;background:var(--card);display:grid;place-items:center;text-align:center}
+  .gauge b{font-size:32px;display:block;line-height:1}
+  .gauge span{font-size:11px;color:var(--mute)}
+  .verdict{font-size:24px;font-weight:800}
+  .badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;margin-bottom:6px}
+  h3{margin:20px 0 8px;font-size:15px}
+  ul{margin:0;padding:0;list-style:none}
+  li{padding:9px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;background:#0f1930;font-size:14px;display:flex;justify-content:space-between;gap:10px}
+  li small{color:var(--mute);white-space:nowrap}
+  .msg{background:#0c1527;border:1px solid var(--line);border-radius:12px;padding:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word;font-size:14px}
+  mark{background:rgba(239,68,68,.28);color:#ffd1d1;padding:1px 3px;border-radius:4px}
+  .ai{border-left:3px solid var(--brand);background:#0f1930;padding:12px 14px;border-radius:8px;font-size:14px;line-height:1.5}
+  .help{margin-top:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+  .help div{background:#0f1930;border:1px solid var(--line);border-radius:12px;padding:12px;font-size:13px;color:var(--mute)}
+  .help b{display:block;color:var(--text);font-size:18px;margin-bottom:2px}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px;color:var(--mute);font-size:13px}
+  .stats span{background:#0f1930;border:1px solid var(--line);padding:6px 12px;border-radius:999px}
+  footer{margin-top:28px;color:var(--mute);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><div class="logo">&#128737;</div><h1>ScamShield</h1></header>
+  <p class="sub">Paste any suspicious SMS, WhatsApp message, email or link. AI tells you if it is a scam, in seconds. Messages are not stored.</p>
+
+  <div class="card">
+    <textarea id="text" placeholder="Paste the message here... e.g. 'Dear customer your SBI account will be blocked today. Update KYC at http://sbi-kyc-update.xyz'"></textarea>
+    <div class="label">Try an example:</div>
+    <div class="row" style="margin-top:0">
+      <button class="ghost" data-ex="0">Bank KYC scam</button>
+      <button class="ghost" data-ex="1">Fake job offer</button>
+      <button class="ghost" data-ex="2">Digital arrest</button>
+      <button class="ghost" data-ex="3">UPI refund trick</button>
+      <button class="ghost" data-ex="4">Normal message</button>
+    </div>
+    <div class="row">
+      <button class="primary" id="go">Check Now</button>
+      <button class="ghost" id="clear">Clear</button>
+    </div>
+  </div>
+
+  <div id="result" class="card">
+    <div class="top">
+      <div class="gauge" id="gauge"><div><p style="margin:0"><b id="score">0</b><span>risk score</span></p></div></div>
+      <div>
+        <span class="badge" id="badge"></span>
+        <div class="verdict" id="verdict"></div>
+        <div style="color:var(--mute);font-size:13px;margin-top:4px" id="engine"></div>
+      </div>
+    </div>
+
+    <div id="aiBox" style="display:none"><h3>AI analysis</h3><div class="ai" id="ai"></div></div>
+
+    <h3>Message with red flags highlighted</h3>
+    <div class="msg" id="hl"></div>
+
+    <h3>Why we think so</h3>
+    <ul id="reasons"></ul>
+
+    <h3>What you should do</h3>
+    <ul id="actions"></ul>
+  </div>
+
+  <div class="help">
+    <div><b>1930</b>National Cyber Crime Helpline. Call immediately if money is lost.</div>
+    <div><b>cybercrime.gov.in</b>Report online fraud officially.</div>
+    <div><b>Never share</b>OTP, UPI PIN, CVV or passwords with anyone.</div>
+  </div>
+  <div class="stats" id="stats"></div>
+  <footer>ScamShield - HackNowa Global Hackathon 2026 | Track: Digital Safety &amp; Cybersecurity</footer>
+</div>
+
+<script>
+const EX = [
+  "Dear SBI customer, your account will be BLOCKED today. Update your KYC immediately: http://sbi-kyc-update.xyz/login. Share OTP to verify.",
+  "Congratulations! Work from home part-time job. Earn Rs 5000 per day just by liking videos. Pay Rs 500 registration fee. Join our VIP group on Telegram.",
+  "This is CBI officer. A parcel in your name has narcotics. You are under digital arrest. Install AnyDesk now and do not tell anyone or legal action will follow.",
+  "Your refund of Rs 4,999 is approved. Accept the collect request and enter your UPI PIN to receive the money. Urgent, expires in 10 minutes.",
+  "Hi, are we still meeting for lunch tomorrow at 1? Let me know if you want to change the place."
+];
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+document.querySelectorAll('[data-ex]').forEach(b => b.onclick = () => { $('text').value = EX[b.dataset.ex]; });
+$('clear').onclick = () => { $('text').value = ''; $('result').style.display = 'none'; };
+
+function highlight(text, parts) {
+  let out = esc(text);
+  [...new Set(parts)].sort((a, b) => b.length - a.length).forEach(p => {
+    const e = esc(p).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    out = out.replace(new RegExp(e, 'gi'), m => '<mark>' + m + '</mark>');
+  });
+  return out;
+}
+
+$('go').onclick = async () => {
+  const text = $('text').value.trim();
+  if (text.length < 3) return alert('Please paste a message first.');
+  $('go').disabled = true; $('go').textContent = 'Analyzing...';
+  try {
+    const r = await fetch('/api/analyze', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text})});
+    if (!r.ok) throw new Error('Server error');
+    show(text, await r.json());
+    loadStats();
+  } catch (e) { alert('Could not reach the server. Is it running?'); }
+  $('go').disabled = false; $('go').textContent = 'Check Now';
+};
+
+function show(text, d) {
+  const color = d.verdict === 'SCAM' ? 'var(--bad)' : d.verdict === 'SUSPICIOUS' ? 'var(--warn)' : 'var(--ok)';
+  $('result').style.display = 'block';
+  $('score').textContent = d.score;
+  $('gauge').style.background = `conic-gradient(${color} ${d.score * 3.6}deg, #22304d 0)`;
+  $('verdict').textContent = d.verdict === 'SCAM' ? 'Likely a SCAM' : d.verdict === 'SUSPICIOUS' ? 'Suspicious - be careful' : 'Looks safe';
+  $('verdict').style.color = color;
+  $('badge').textContent = d.verdict;
+  $('badge').style.background = color; $('badge').style.color = '#fff';
+  $('engine').textContent = d.ai_used ? 'Rule engine + Claude AI' : 'Rule engine (add API key for AI layer)';
+  $('aiBox').style.display = d.ai_explanation ? 'block' : 'none';
+  $('ai').textContent = d.ai_explanation || '';
+  $('hl').innerHTML = highlight(text, d.highlights);
+  $('reasons').innerHTML = d.reasons.length
+    ? d.reasons.map(x => `<li><span>${esc(x.title)}</span><small>+${x.weight} risk</small></li>`).join('')
+    : '<li>No known scam patterns found.</li>';
+  $('actions').innerHTML = (d.actions.length ? d.actions : ['Stay alert. If anything feels off, verify through the official app or website.'])
+    .map(a => `<li><span>${esc(a)}</span></li>`).join('');
+  $('result').scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+async function loadStats() {
+  try {
+    const s = await (await fetch('/api/stats')).json();
+    $('stats').innerHTML = `<span>Messages checked: ${s.total}</span><span>Scams caught: ${s.SCAM}</span><span>Suspicious: ${s.SUSPICIOUS}</span><span>Safe: ${s['LIKELY SAFE']}</span>`;
+  } catch (e) {}
+}
+loadStats();
+</script>
+</body>
+</html>
